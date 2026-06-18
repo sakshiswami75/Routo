@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ParcelStatus {
+  PENDING
+  ACCEPTED
+  DELIVERED
+}
+
+enum DeliveryStatus {
+  ACCEPTED
+  IN_TRANSIT
+  DELIVERED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  sentParcels Parcel[]   @relation("SenderParcels")
+  deliveries  Delivery[] @relation("CarrierDeliveries")
+}
+
+model Parcel {
+  id             String       @id @default(uuid())
+  title          String
+  description    String?
+  pickupLocation String
+  dropLocation   String
+  status         ParcelStatus @default(PENDING)
+  weight         Float
+  rewardAmount   Float
+  senderId       String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  sender   User      @relation("SenderParcels", fields: [senderId], references: [id])
+  delivery Delivery?
+
+  // Indexes for query performance
+  @@index([senderId])
+  @@index([status])
+}
+
+model Delivery {
+  id          String         @id @default(uuid())
+  parcelId    String         @unique
+  carrierId   String
+  status      DeliveryStatus @default(ACCEPTED)
+  acceptedAt  DateTime       @default(now())
+  deliveredAt DateTime?
+
+  // Relations
+  parcel  Parcel @relation(fields: [parcelId], references: [id])
+  carrier User   @relation("CarrierDeliveries", fields: [carrierId], references: [id])
+
+  // Indexes
+  @@index([carrierId])
+  @@index([status])
+}
