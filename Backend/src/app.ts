@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth.routes';
 import parcelRoutes from './routes/parcel.routes';
+import deliveryRoutes from './routes/delivery.routes';
 import { errorMiddleware } from './middlewares/error.middleware';
 
 const app = express();
@@ -13,6 +14,7 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/parcels', parcelRoutes);
+app.use('/api/deliveries', deliveryRoutes);
 
 // Global Error Handler
 app.use(errorMiddleware);
