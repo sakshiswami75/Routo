@@ -80,6 +80,25 @@ export class DeliveryRepository {
     });
   }
 
+  async markInTransit(id: string): Promise<DeliveryWithRelations> {
+    return await prisma.delivery.update({
+      where: { id },
+      data: {
+        status: DeliveryStatus.IN_TRANSIT,
+      },
+      include: {
+        parcel: true,
+        carrier: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
   async markDelivered(id: string): Promise<DeliveryWithRelations> {
     return await prisma.$transaction(async (tx) => {
       const delivery = await tx.delivery.update({

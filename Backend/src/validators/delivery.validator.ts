@@ -6,11 +6,11 @@ export const acceptDeliverySchema = z.object({
   }),
 });
 
-export const markDeliveredSchema = z.object({
+export const deliveryIdParamSchema = z.object({
   params: z.object({
     id: z.string().uuid('Invalid delivery ID'),
   }),
 });
 
 export type AcceptDeliveryInput = z.infer<typeof acceptDeliverySchema>['body'];
-export type MarkDeliveredParams = z.infer<typeof markDeliveredSchema>['params'];
+export type DeliveryIdParam = z.infer<typeof deliveryIdParamSchema>['params'];

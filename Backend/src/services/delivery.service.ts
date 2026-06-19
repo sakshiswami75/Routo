@@ -1,4 +1,4 @@
-import { ParcelStatus } from '@prisma/client';
+import { DeliveryStatus, ParcelStatus } from '@prisma/client';
 import { DeliveryRepository } from '../repositories/delivery.repository';
 import { AcceptDeliveryInput } from '../validators/delivery.validator';
 import { AppError } from '../utils/AppError';
@@ -44,6 +44,27 @@ export class DeliveryService {
     return await this.deliveryRepository.findByCarrierId(carrierId);
   }
 
+  async markInTransit(deliveryId: string, carrierId: string) {
+    if (!carrierId) {
+      throw new AppError('Unauthorized: Carrier ID is required', 401);
+    }
+
+    const delivery = await this.deliveryRepository.findById(deliveryId);
+    if (!delivery) {
+      throw new AppError('Delivery not found', 404);
+    }
+
+    if (delivery.carrierId !== carrierId) {
+      throw new AppError('You are not authorized to update this delivery', 403);
+    }
+
+    if (delivery.status !== DeliveryStatus.ACCEPTED) {
+      throw new AppError('Delivery must be accepted before marking in transit', 400);
+    }
+
+    return await this.deliveryRepository.markInTransit(deliveryId);
+  }
+
   async markDelivered(deliveryId: string, carrierId: string) {
     if (!carrierId) {
       throw new AppError('Unauthorized: Carrier ID is required', 401);
@@ -58,8 +79,8 @@ export class DeliveryService {
       throw new AppError('You are not authorized to update this delivery', 403);
     }
 
-    if (delivery.status === 'DELIVERED') {
-      throw new AppError('This delivery has already been completed', 400);
+    if (delivery.status !== DeliveryStatus.IN_TRANSIT) {
+      throw new AppError('Delivery must be in transit before marking delivered', 400);
     }
 
     return await this.deliveryRepository.markDelivered(deliveryId);

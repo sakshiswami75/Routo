@@ -5,6 +5,7 @@ import parcelRoutes from './routes/parcel.routes';
 import deliveryRoutes from './routes/delivery.routes';
 import routeRoutes from './routes/route.routes';
 import matchRoutes from './routes/match.routes';
+import reviewRoutes from './routes/review.routes';
 import { errorMiddleware } from './middlewares/error.middleware';
 
 const app = express();
@@ -19,6 +20,7 @@ app.use('/api/parcels', parcelRoutes);
 app.use('/api/deliveries', deliveryRoutes);
 app.use('/api/routes', routeRoutes);
 app.use('/api', matchRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // Global Error Handler
 app.use(errorMiddleware);

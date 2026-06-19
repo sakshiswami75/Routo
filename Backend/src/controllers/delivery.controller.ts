@@ -36,6 +36,20 @@ export class DeliveryController {
     }
   };
 
+  markInTransit = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user || !req.user.id) {
+        throw new AppError('Unauthorized: User context missing', 401);
+      }
+
+      const id = req.params.id as string;
+      const delivery = await this.deliveryService.markInTransit(id, req.user.id);
+      sendResponse(res, 200, 'Delivery marked as in transit successfully', delivery);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   markDelivered = async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.user || !req.user.id) {

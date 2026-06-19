@@ -27,9 +27,11 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  sentParcels Parcel[]   @relation("SenderParcels")
-  deliveries  Delivery[] @relation("CarrierDeliveries")
-  routes      Route[]    @relation("TravelerRoutes")
+  sentParcels     Parcel[]   @relation("SenderParcels")
+  deliveries      Delivery[] @relation("CarrierDeliveries")
+  routes          Route[]    @relation("TravelerRoutes")
+  sentReviews     Review[]   @relation("SenderReviews")
+  receivedReviews Review[]   @relation("CarrierReviews")
 }
 
 model Parcel {
@@ -63,8 +65,9 @@ model Delivery {
   deliveredAt DateTime?
 
   // Relations
-  parcel  Parcel @relation(fields: [parcelId], references: [id])
-  carrier User   @relation("CarrierDeliveries", fields: [carrierId], references: [id])
+  parcel  Parcel  @relation(fields: [parcelId], references: [id])
+  carrier User    @relation("CarrierDeliveries", fields: [carrierId], references: [id])
+  review  Review?
 
   // Indexes
   @@index([carrierId])
@@ -88,4 +91,23 @@ model Route {
   // Indexes
   @@index([travelerId])
   @@index([fromCity, toCity])
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  rating     Int
+  comment    String?
+  senderId   String
+  carrierId  String
+  deliveryId String   @unique
+  createdAt  DateTime @default(now())
+
+  // Relations
+  sender   User     @relation("SenderReviews", fields: [senderId], references: [id])
+  carrier  User     @relation("CarrierReviews", fields: [carrierId], references: [id])
+  delivery Delivery @relation(fields: [deliveryId], references: [id])
+
+  // Indexes
+  @@index([senderId])
+  @@index([carrierId])
 }
