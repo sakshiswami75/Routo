@@ -20,6 +20,10 @@ export class DeliveryService {
       throw new AppError('Parcel not found', 404);
     }
 
+    if (parcel.senderId === carrierId) {
+      throw new AppError('You cannot accept your own parcel for delivery', 400);
+    }
+
     if (parcel.status !== ParcelStatus.PENDING) {
       throw new AppError('Parcel is not available for acceptance', 400);
     }
@@ -52,6 +56,10 @@ export class DeliveryService {
 
     if (delivery.carrierId !== carrierId) {
       throw new AppError('You are not authorized to update this delivery', 403);
+    }
+
+    if (delivery.status === 'DELIVERED') {
+      throw new AppError('This delivery has already been completed', 400);
     }
 
     return await this.deliveryRepository.markDelivered(deliveryId);

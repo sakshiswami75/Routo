@@ -29,6 +29,7 @@ model User {
   // Relations
   sentParcels Parcel[]   @relation("SenderParcels")
   deliveries  Delivery[] @relation("CarrierDeliveries")
+  routes      Route[]    @relation("TravelerRoutes")
 }
 
 model Parcel {
@@ -68,4 +69,23 @@ model Delivery {
   // Indexes
   @@index([carrierId])
   @@index([status])
+}
+
+model Route {
+  id                String   @id @default(uuid())
+  fromCity          String
+  toCity            String
+  vehicleType       String
+  availableCapacity Float
+  travelDate        DateTime
+  travelerId        String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  traveler User @relation("TravelerRoutes", fields: [travelerId], references: [id])
+
+  // Indexes
+  @@index([travelerId])
+  @@index([fromCity, toCity])
 }
