@@ -36,6 +36,20 @@ export class DeliveryController {
     }
   };
 
+  markPickedUp = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user || !req.user.id) {
+        throw new AppError('Unauthorized: User context missing', 401);
+      }
+
+      const id = req.params.id as string;
+      const delivery = await this.deliveryService.markPickedUp(id, req.user.id);
+      sendResponse(res, 200, 'Delivery marked as picked up successfully', delivery);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   markInTransit = async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.user || !req.user.id) {

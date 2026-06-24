@@ -11,6 +11,7 @@ router.use(authMiddleware);
 
 router.post('/accept', validateRequest(acceptDeliverySchema), deliveryController.accept);
 router.get('/my', deliveryController.getMyDeliveries);
+router.patch('/:id/pickup', validateRequest(deliveryIdParamSchema), deliveryController.markPickedUp);
 router.patch('/:id/in-transit', validateRequest(deliveryIdParamSchema), deliveryController.markInTransit);
 router.patch('/:id/deliver', validateRequest(deliveryIdParamSchema), deliveryController.markDelivered);
 

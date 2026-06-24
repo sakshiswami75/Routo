@@ -9,13 +9,18 @@ datasource db {
 enum ParcelStatus {
   PENDING
   ACCEPTED
+  PICKED_UP
+  IN_TRANSIT
   DELIVERED
+  CANCELLED
 }
 
 enum DeliveryStatus {
   ACCEPTED
+  PICKED_UP
   IN_TRANSIT
   DELIVERED
+  CANCELLED
 }
 
 model User {

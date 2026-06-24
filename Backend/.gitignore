@@ -5,3 +5,7 @@ dist
 !.env.example
 
 /generated/prisma
+
+# Build and testing
+build/
+coverage/

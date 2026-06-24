@@ -1,18 +1,14 @@
 import { Delivery, DeliveryStatus, Parcel, ParcelStatus, Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma';
 
-export type DeliveryWithRelations = Prisma.DeliveryGetPayload<{
-  include: {
-    parcel: true;
-    carrier: {
-      select: {
-        id: true;
-        name: true;
-        email: true;
-      };
-    };
+export type DeliveryWithRelations = Delivery & {
+  parcel: Parcel;
+  carrier: {
+    id: string;
+    name: string;
+    email: string;
   };
-}>;
+};
 
 export class DeliveryRepository {
   async findParcelById(parcelId: string): Promise<Parcel | null> {
@@ -22,7 +18,7 @@ export class DeliveryRepository {
   }
 
   async acceptParcel(parcelId: string, carrierId: string): Promise<DeliveryWithRelations | null> {
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx): Promise<DeliveryWithRelations | null> => {
       const updatedParcel = await tx.parcel.updateMany({
         where: {
           id: parcelId,
@@ -35,7 +31,7 @@ export class DeliveryRepository {
         return null;
       }
 
-      return await tx.delivery.create({
+      return (await tx.delivery.create({
         data: {
           parcelId,
           carrierId,
@@ -51,12 +47,12 @@ export class DeliveryRepository {
             },
           },
         },
-      });
+      })) as DeliveryWithRelations;
     });
   }
 
   async findByCarrierId(carrierId: string): Promise<DeliveryWithRelations[]> {
-    return await prisma.delivery.findMany({
+    const deliveries = await prisma.delivery.findMany({
       where: { carrierId },
       include: {
         parcel: true,
@@ -72,6 +68,8 @@ export class DeliveryRepository {
         acceptedAt: 'desc',
       },
     });
+    
+    return deliveries as DeliveryWithRelations[];
   }
 
   async findById(id: string): Promise<Delivery | null> {
@@ -80,27 +78,68 @@ export class DeliveryRepository {
     });
   }
 
-  async markInTransit(id: string): Promise<DeliveryWithRelations> {
-    return await prisma.delivery.update({
-      where: { id },
-      data: {
-        status: DeliveryStatus.IN_TRANSIT,
-      },
-      include: {
-        parcel: true,
-        carrier: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+  async markPickedUp(id: string): Promise<DeliveryWithRelations> {
+    return await prisma.$transaction(async (tx): Promise<DeliveryWithRelations> => {
+      const delivery = await tx.delivery.update({
+        where: { id },
+        data: {
+          status: DeliveryStatus.PICKED_UP,
+        },
+      });
+
+      await tx.parcel.update({
+        where: { id: delivery.parcelId },
+        data: { status: ParcelStatus.PICKED_UP },
+      });
+
+      return (await tx.delivery.findUniqueOrThrow({
+        where: { id },
+        include: {
+          parcel: true,
+          carrier: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
         },
-      },
+      })) as DeliveryWithRelations;
+    });
+  }
+
+  async markInTransit(id: string): Promise<DeliveryWithRelations> {
+    return await prisma.$transaction(async (tx): Promise<DeliveryWithRelations> => {
+      const delivery = await tx.delivery.update({
+        where: { id },
+        data: {
+          status: DeliveryStatus.IN_TRANSIT,
+        },
+      });
+
+      await tx.parcel.update({
+        where: { id: delivery.parcelId },
+        data: { status: ParcelStatus.IN_TRANSIT },
+      });
+
+      return (await tx.delivery.findUniqueOrThrow({
+        where: { id },
+        include: {
+          parcel: true,
+          carrier: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      })) as DeliveryWithRelations;
     });
   }
 
   async markDelivered(id: string): Promise<DeliveryWithRelations> {
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx): Promise<DeliveryWithRelations> => {
       const delivery = await tx.delivery.update({
         where: { id },
         data: {
@@ -114,7 +153,7 @@ export class DeliveryRepository {
         data: { status: ParcelStatus.DELIVERED },
       });
 
-      return await tx.delivery.findUniqueOrThrow({
+      return (await tx.delivery.findUniqueOrThrow({
         where: { id },
         include: {
           parcel: true,
@@ -126,7 +165,7 @@ export class DeliveryRepository {
             },
           },
         },
-      });
+      })) as DeliveryWithRelations;
     });
   }
 }
