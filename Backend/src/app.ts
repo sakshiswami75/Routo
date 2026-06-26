@@ -6,6 +6,8 @@ import deliveryRoutes from './routes/delivery.routes';
 import routeRoutes from './routes/route.routes';
 import matchRoutes from './routes/match.routes';
 import reviewRoutes from './routes/review.routes';
+import profileRoutes from './routes/profile.routes';
+import dashboardRoutes from './routes/dashboard.routes';
 import { errorMiddleware } from './middlewares/error.middleware';
 
 const app = express();
@@ -21,6 +23,8 @@ app.use('/api/deliveries', deliveryRoutes);
 app.use('/api/routes', routeRoutes);
 app.use('/api', matchRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Global Error Handler
 app.use(errorMiddleware);
