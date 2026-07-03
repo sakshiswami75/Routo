@@ -86,24 +86,4 @@ export class DeliveryService {
     return await this.deliveryRepository.markInTransit(deliveryId);
   }
 
-  async markDelivered(deliveryId: string, carrierId: string) {
-    if (!carrierId) {
-      throw new AppError('Unauthorized: Carrier ID is required', 401);
-    }
-
-    const delivery = await this.deliveryRepository.findById(deliveryId);
-    if (!delivery) {
-      throw new AppError('Delivery not found', 404);
-    }
-
-    if (delivery.carrierId !== carrierId) {
-      throw new AppError('You are not authorized to update this delivery', 403);
-    }
-
-    if (delivery.status !== DeliveryStatus.IN_TRANSIT) {
-      throw new AppError('Delivery must be in transit before marking delivered', 400);
-    }
-
-    return await this.deliveryRepository.markDelivered(deliveryId);
-  }
 }

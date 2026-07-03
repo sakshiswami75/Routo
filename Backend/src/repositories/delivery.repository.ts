@@ -1,4 +1,4 @@
-import { Delivery, DeliveryStatus, Parcel, ParcelStatus, Prisma } from '@prisma/client';
+import { Delivery, DeliveryStatus, Parcel, ParcelStatus, Prisma, TransactionType, TransactionStatus } from '@prisma/client';
 import { prisma } from '../config/prisma';
 
 export type DeliveryWithRelations = Delivery & {
@@ -138,8 +138,34 @@ export class DeliveryRepository {
     });
   }
 
-  async markDelivered(id: string): Promise<DeliveryWithRelations> {
+  async verifyOTPAndDeliver(id: string, otpId: string): Promise<DeliveryWithRelations> {
     return await prisma.$transaction(async (tx): Promise<DeliveryWithRelations> => {
+      const existingDelivery = await tx.delivery.findUnique({
+        where: { id },
+        include: { parcel: true },
+      });
+
+      if (!existingDelivery) {
+        throw new Error('Delivery not found');
+      }
+
+      if (existingDelivery.status === DeliveryStatus.DELIVERED) {
+        throw new Error('Delivery is already marked as DELIVERED');
+      }
+
+      // Atomically mark OTP as verified to prevent race conditions
+      const otp = await tx.deliveryOTP.updateMany({
+        where: { 
+          id: otpId,
+          verified: false
+        },
+        data: { verified: true }
+      });
+
+      if (otp.count === 0) {
+        throw new Error('OTP already verified or not found');
+      }
+
       const delivery = await tx.delivery.update({
         where: { id },
         data: {
@@ -148,9 +174,30 @@ export class DeliveryRepository {
         },
       });
 
-      await tx.parcel.update({
+      const parcel = await tx.parcel.update({
         where: { id: delivery.parcelId },
         data: { status: ParcelStatus.DELIVERED },
+      });
+
+      const rewardAmount = parcel.rewardAmount;
+
+      await tx.user.update({
+        where: { id: existingDelivery.carrierId },
+        data: {
+          walletBalance: { increment: rewardAmount },
+          totalEarnings: { increment: rewardAmount },
+        },
+      });
+
+      await tx.walletTransaction.create({
+        data: {
+          userId: existingDelivery.carrierId,
+          deliveryId: delivery.id,
+          amount: rewardAmount,
+          transactionType: TransactionType.CREDIT,
+          status: TransactionStatus.SUCCESS,
+          description: `Reward for delivering parcel ${parcel.title}`,
+        },
       });
 
       return (await tx.delivery.findUniqueOrThrow({

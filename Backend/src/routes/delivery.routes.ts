@@ -3,6 +3,7 @@ import { DeliveryController } from '../controllers/delivery.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { validateRequest } from '../middlewares/validation.middleware';
 import { acceptDeliverySchema, deliveryIdParamSchema } from '../validators/delivery.validator';
+import { verifyOtpSchema } from '../validators/otp.validator';
 
 const router = Router();
 const deliveryController = new DeliveryController();
@@ -13,6 +14,7 @@ router.post('/accept', validateRequest(acceptDeliverySchema), deliveryController
 router.get('/my', deliveryController.getMyDeliveries);
 router.patch('/:id/pickup', validateRequest(deliveryIdParamSchema), deliveryController.markPickedUp);
 router.patch('/:id/in-transit', validateRequest(deliveryIdParamSchema), deliveryController.markInTransit);
-router.patch('/:id/deliver', validateRequest(deliveryIdParamSchema), deliveryController.markDelivered);
+router.post('/:id/generate-otp', validateRequest(deliveryIdParamSchema), deliveryController.generateOTP);
+router.post('/:id/verify-otp', validateRequest(deliveryIdParamSchema), validateRequest(verifyOtpSchema), deliveryController.verifyOTP);
 
 export default router;

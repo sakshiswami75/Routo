@@ -23,6 +23,17 @@ enum DeliveryStatus {
   CANCELLED
 }
 
+enum TransactionType {
+  CREDIT
+  DEBIT
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String
@@ -31,12 +42,17 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  walletBalance  Float @default(0)
+  totalEarnings  Float @default(0)
+  totalWithdrawn Float @default(0)
+
   // Relations
-  sentParcels     Parcel[]   @relation("SenderParcels")
-  deliveries      Delivery[] @relation("CarrierDeliveries")
-  routes          Route[]    @relation("TravelerRoutes")
-  sentReviews     Review[]   @relation("SenderReviews")
-  receivedReviews Review[]   @relation("CarrierReviews")
+  sentParcels        Parcel[]            @relation("SenderParcels")
+  deliveries         Delivery[]          @relation("CarrierDeliveries")
+  routes             Route[]             @relation("TravelerRoutes")
+  sentReviews        Review[]            @relation("SenderReviews")
+  receivedReviews    Review[]            @relation("CarrierReviews")
+  walletTransactions WalletTransaction[] @relation("UserWalletTransactions")
 }
 
 model Parcel {
@@ -45,6 +61,10 @@ model Parcel {
   description    String?
   pickupLocation String
   dropLocation   String
+  receiverName   String?
+  receiverPhone  String?
+  dropAddress    String?
+  dropLandmark   String?
   status         ParcelStatus @default(PENDING)
   weight         Float
   rewardAmount   Float
@@ -70,9 +90,11 @@ model Delivery {
   deliveredAt DateTime?
 
   // Relations
-  parcel  Parcel  @relation(fields: [parcelId], references: [id])
-  carrier User    @relation("CarrierDeliveries", fields: [carrierId], references: [id])
-  review  Review?
+  parcel             Parcel              @relation(fields: [parcelId], references: [id])
+  carrier            User                @relation("CarrierDeliveries", fields: [carrierId], references: [id])
+  review             Review?
+  walletTransactions WalletTransaction[]
+  otp                DeliveryOTP?
 
   // Indexes
   @@index([carrierId])
@@ -115,4 +137,38 @@ model Review {
   // Indexes
   @@index([senderId])
   @@index([carrierId])
+}
+
+model WalletTransaction {
+  id              String            @id @default(uuid())
+  userId          String
+  deliveryId      String?
+  amount          Float
+  transactionType TransactionType
+  status          TransactionStatus @default(PENDING)
+  description     String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  user     User      @relation("UserWalletTransactions", fields: [userId], references: [id])
+  delivery Delivery? @relation(fields: [deliveryId], references: [id])
+
+  // Indexes
+  @@index([userId])
+  @@index([deliveryId])
+}
+
+model DeliveryOTP {
+  id           String   @id @default(uuid())
+  deliveryId   String   @unique
+  otp          String
+  expiresAt    DateTime
+  verified     Boolean  @default(false)
+  attemptCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  delivery Delivery @relation(fields: [deliveryId], references: [id])
 }

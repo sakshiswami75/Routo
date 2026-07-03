@@ -1,4 +1,4 @@
-import { User } from '@prisma/client';
+import { User, Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma';
 
 export class UserRepository {
@@ -8,7 +8,7 @@ export class UserRepository {
     });
   }
 
-  async create(data: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> {
+  async create(data: Prisma.UserCreateInput): Promise<User> {
     return await prisma.user.create({
       data,
     });

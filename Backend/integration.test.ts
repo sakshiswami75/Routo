@@ -51,22 +51,19 @@ const testRunner = async () => {
     if (res.status !== 201) throw new Error(`Expected 201, got ${res.status}: ${JSON.stringify(res.data)}`);
   });
 
+  let senderEmail = `sender${Date.now()}@test.com`;
+  let carrierEmail = `carrier${Date.now()}@test.com`;
+
   await runTest('User A (Sender) Login', async () => {
-    // Wait for the DB to save... actually it's immediate
-    const res = await fetchApi('POST', '/auth/login', {
-      email: `sender@test.com`, // We need to use a consistent email
-      password: 'password123'
-    });
-    // Let's re-register with a fixed email and catch 409
-    await fetchApi('POST', '/auth/register', { name: 'Sender', email: 'sender@test.com', password: 'password123' });
-    const loginRes = await fetchApi('POST', '/auth/login', { email: 'sender@test.com', password: 'password123' });
+    await fetchApi('POST', '/auth/register', { name: 'Sender', email: senderEmail, password: 'password123' });
+    const loginRes = await fetchApi('POST', '/auth/login', { email: senderEmail, password: 'password123' });
     if (loginRes.status !== 200) throw new Error('Login failed');
     senderToken = loginRes.data.data.token;
   });
 
   await runTest('User B (Carrier) Registration and Login', async () => {
-    await fetchApi('POST', '/auth/register', { name: 'Carrier', email: 'carrier@test.com', password: 'password123' });
-    const loginRes = await fetchApi('POST', '/auth/login', { email: 'carrier@test.com', password: 'password123' });
+    await fetchApi('POST', '/auth/register', { name: 'Carrier', email: carrierEmail, password: 'password123' });
+    const loginRes = await fetchApi('POST', '/auth/login', { email: carrierEmail, password: 'password123' });
     if (loginRes.status !== 200) throw new Error('Carrier login failed');
     carrierToken = loginRes.data.data.token;
   });
@@ -111,8 +108,8 @@ const testRunner = async () => {
     if (res.status !== 400 && res.status !== 404) throw new Error(`Expected error, got ${res.status}`);
   });
 
-  await runTest('Invalid Status Transition (Deliver before Pickup) should FAIL', async () => {
-    const res = await fetchApi('PATCH', `/deliveries/${deliveryId}/deliver`, {}, carrierToken);
+  await runTest('Generate OTP before Pickup should FAIL', async () => {
+    const res = await fetchApi('POST', `/deliveries/${deliveryId}/generate-otp`, {}, carrierToken);
     if (res.status !== 400) throw new Error(`Expected 400, got ${res.status}`);
   });
 
@@ -136,14 +133,93 @@ const testRunner = async () => {
     if (res.status !== 200) throw new Error(`Failed: ${JSON.stringify(res.data)}`);
   });
 
-  await runTest('Deliver Parcel (User B)', async () => {
-    const res = await fetchApi('PATCH', `/deliveries/${deliveryId}/deliver`, {}, carrierToken);
+  let plainOtp = '';
+  await runTest('Generate OTP (User B)', async () => {
+    const res = await fetchApi('POST', `/deliveries/${deliveryId}/generate-otp`, {}, carrierToken);
+    if (res.status !== 200) throw new Error(`Failed: ${JSON.stringify(res.data)}`);
+    plainOtp = res.data.data.otp;
+    if (!plainOtp) throw new Error('OTP not returned in response');
+  });
+
+  await runTest('Verify Wrong OTP (User B)', async () => {
+    const res = await fetchApi('POST', `/deliveries/${deliveryId}/verify-otp`, { otp: '000000' }, carrierToken);
+    if (res.status !== 400) throw new Error(`Expected 400 for wrong OTP, got ${res.status}`);
+  });
+
+  await runTest('Verify Correct OTP -> Deliver (User B)', async () => {
+    const res = await fetchApi('POST', `/deliveries/${deliveryId}/verify-otp`, { otp: plainOtp }, carrierToken);
     if (res.status !== 200) throw new Error(`Failed: ${JSON.stringify(res.data)}`);
   });
 
-  await runTest('Duplicate Delivery Completion should FAIL', async () => {
-    const res = await fetchApi('PATCH', `/deliveries/${deliveryId}/deliver`, {}, carrierToken);
+  await runTest('Duplicate OTP Verification should FAIL', async () => {
+    const res = await fetchApi('POST', `/deliveries/${deliveryId}/verify-otp`, { otp: plainOtp }, carrierToken);
     if (res.status !== 400) throw new Error(`Expected 400, got ${res.status}`);
+  });
+
+  await runTest('Generate OTP after Delivery should FAIL', async () => {
+    const res = await fetchApi('POST', `/deliveries/${deliveryId}/generate-otp`, {}, carrierToken);
+    if (res.status !== 400) throw new Error(`Expected 400, got ${res.status}`);
+  });
+
+  await runTest('Wallet Credit Check (User B)', async () => {
+    const res = await fetchApi('GET', '/wallet', undefined, carrierToken);
+    if (res.status !== 200) throw new Error(`Failed: ${JSON.stringify(res.data)}`);
+    if (res.data.data.walletBalance !== 20) throw new Error(`Expected balance 20, got ${res.data.data.walletBalance}`);
+  });
+
+  await runTest('Wallet Withdrawal Success (User B)', async () => {
+    const res = await fetchApi('POST', '/wallet/withdraw', { amount: 15 }, carrierToken);
+    if (res.status !== 200) throw new Error(`Failed: ${JSON.stringify(res.data)}`);
+  });
+
+  await runTest('Wallet Balance Update After Withdrawal (User B)', async () => {
+    const res = await fetchApi('GET', '/wallet', undefined, carrierToken);
+    if (res.status !== 200) throw new Error(`Failed: ${JSON.stringify(res.data)}`);
+    if (res.data.data.walletBalance !== 5) throw new Error(`Expected balance 5, got ${res.data.data.walletBalance}`);
+    if (res.data.data.totalWithdrawn !== 15) throw new Error(`Expected totalWithdrawn 15, got ${res.data.data.totalWithdrawn}`);
+  });
+
+  await runTest('Wallet Withdrawal Failure - Insufficient Balance (User B)', async () => {
+    const res = await fetchApi('POST', '/wallet/withdraw', { amount: 10 }, carrierToken);
+    if (res.status !== 400) throw new Error(`Expected 400, got ${res.status}`);
+  });
+
+  await runTest('Wallet Withdrawal Failure - Negative Amount (User B)', async () => {
+    const res = await fetchApi('POST', '/wallet/withdraw', { amount: -5 }, carrierToken);
+    if (res.status !== 400) throw new Error(`Expected 400, got ${res.status}`);
+  });
+
+  await runTest('Wallet Unauthorized Access', async () => {
+    const res = await fetchApi('GET', '/wallet');
+    if (res.status !== 401) throw new Error(`Expected 401, got ${res.status}`);
+  });
+
+  await runTest('Wallet Transaction History (User B)', async () => {
+    const res = await fetchApi('GET', '/wallet/transactions', undefined, carrierToken);
+    if (res.status !== 200) throw new Error(`Failed: ${JSON.stringify(res.data)}`);
+    if (res.data.data.length !== 2) throw new Error(`Expected 2 transactions, got ${res.data.data.length}`);
+  });
+
+  await runTest('Dashboard Data Fetch (User A)', async () => {
+    const res = await fetchApi('GET', '/dashboard', undefined, senderToken);
+    if (res.status !== 200) throw new Error(`Failed: ${JSON.stringify(res.data)}`);
+  });
+
+  await runTest('Create Review for Carrier (User A)', async () => {
+    // Senders can review carriers after delivery
+    const res = await fetchApi('POST', '/reviews', {
+      deliveryId,
+      rating: 5,
+      comment: 'Great carrier!'
+    }, senderToken);
+    if (res.status !== 201) throw new Error(`Expected 201, got ${res.status}`);
+  });
+
+  await runTest('Get Carrier Reviews (User A)', async () => {
+    const carrierId = (await fetchApi('GET', '/dashboard', undefined, carrierToken)).data.data.user.id;
+    const res = await fetchApi('GET', `/reviews/carrier/${carrierId}`, undefined, senderToken);
+    if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}`);
+    if (res.data.data.length === 0) throw new Error('Expected at least 1 review');
   });
 
   console.log(`--- RESULTS: ${passed} Passed | ${failed} Failed ---`);
