@@ -6,37 +6,18 @@ datasource db {
   provider = "postgresql"
 }
 
-enum ParcelStatus {
-  PENDING
-  ACCEPTED
-  PICKED_UP
-  IN_TRANSIT
-  DELIVERED
-  CANCELLED
-}
-
-enum DeliveryStatus {
-  ACCEPTED
-  PICKED_UP
-  IN_TRANSIT
-  DELIVERED
-  CANCELLED
-}
-
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  sentParcels     Parcel[]   @relation("SenderParcels")
+  id              String     @id @default(uuid())
+  name            String
+  email           String     @unique
+  password        String
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
   deliveries      Delivery[] @relation("CarrierDeliveries")
-  routes          Route[]    @relation("TravelerRoutes")
-  sentReviews     Review[]   @relation("SenderReviews")
+  sentParcels     Parcel[]   @relation("SenderParcels")
   receivedReviews Review[]   @relation("CarrierReviews")
+  sentReviews     Review[]   @relation("SenderReviews")
+  routes          Route[]    @relation("TravelerRoutes")
 }
 
 model Parcel {
@@ -51,12 +32,9 @@ model Parcel {
   senderId       String
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  delivery       Delivery?
+  sender         User         @relation("SenderParcels", fields: [senderId], references: [id])
 
-  // Relations
-  sender   User      @relation("SenderParcels", fields: [senderId], references: [id])
-  delivery Delivery?
-
-  // Indexes for query performance
   @@index([senderId])
   @@index([status])
 }
@@ -68,13 +46,10 @@ model Delivery {
   status      DeliveryStatus @default(ACCEPTED)
   acceptedAt  DateTime       @default(now())
   deliveredAt DateTime?
+  carrier     User           @relation("CarrierDeliveries", fields: [carrierId], references: [id])
+  parcel      Parcel         @relation(fields: [parcelId], references: [id])
+  review      Review?
 
-  // Relations
-  parcel  Parcel  @relation(fields: [parcelId], references: [id])
-  carrier User    @relation("CarrierDeliveries", fields: [carrierId], references: [id])
-  review  Review?
-
-  // Indexes
   @@index([carrierId])
   @@index([status])
 }
@@ -89,11 +64,8 @@ model Route {
   travelerId        String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  traveler          User     @relation("TravelerRoutes", fields: [travelerId], references: [id])
 
-  // Relations
-  traveler User @relation("TravelerRoutes", fields: [travelerId], references: [id])
-
-  // Indexes
   @@index([travelerId])
   @@index([fromCity, toCity])
 }
@@ -106,13 +78,22 @@ model Review {
   carrierId  String
   deliveryId String   @unique
   createdAt  DateTime @default(now())
+  carrier    User     @relation("CarrierReviews", fields: [carrierId], references: [id])
+  delivery   Delivery @relation(fields: [deliveryId], references: [id])
+  sender     User     @relation("SenderReviews", fields: [senderId], references: [id])
 
-  // Relations
-  sender   User     @relation("SenderReviews", fields: [senderId], references: [id])
-  carrier  User     @relation("CarrierReviews", fields: [carrierId], references: [id])
-  delivery Delivery @relation(fields: [deliveryId], references: [id])
-
-  // Indexes
   @@index([senderId])
   @@index([carrierId])
+}
+
+enum ParcelStatus {
+  PENDING
+  ACCEPTED
+  DELIVERED
+}
+
+enum DeliveryStatus {
+  ACCEPTED
+  IN_TRANSIT
+  DELIVERED
 }
